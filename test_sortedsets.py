@@ -207,7 +207,8 @@ class TestFuzzy(unittest.TestCase):
             set4 = SortedSet(set2)
 
             # Check all of them
-            for cur in (set1, set2, set3, set4):
+            cursets = (set1, set2, set3, set4)
+            for cur in cursets:
                 self.assertEqual(list(cur), keys)
                 self.assertEqual(list(cur.keys()), keys)
                 self.assertEqual(list(cur.values()), values)
@@ -217,6 +218,32 @@ class TestFuzzy(unittest.TestCase):
             all_sets = (set_n, set_r, set1, set2, set3, set4)
             for s1, s2 in combinations(all_sets, 2):
                 self.assertEqual(s1, s2)
+
+            # Let's pick up items to delete
+            left = copy.copy(items)
+            to_delete = []
+            for i in range(rnd.randrange(10, 30)):
+                idx = random.randrange(len(left))
+                to_delete.append(left[idx])
+                del left[idx]
+
+            # Let's test deletion
+            for cur in cursets:
+                rnd.shuffle(to_delete)
+                for key, value in to_delete:
+                    del cur[key]
+                self.assertEqual(list(cur.items()), left)
+                self.assertNotEqual(cur, set_n)
+                self.assertNotEqual(cur, set_r)
+
+            # Let's reinsert keys in random order, and check if it's still ok
+            for cur in cursets:
+                rnd.shuffle(to_delete)
+                for key, value in to_delete:
+                    cur[key] = value
+                self.assertEqual(cur, set_n)
+                self.assertEqual(cur, set_r)
+                self.assertEqual(list(cur.items()), items)
 
 
 if __name__ == '__main__':
