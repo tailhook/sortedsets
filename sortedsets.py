@@ -54,6 +54,29 @@ class Item:
             self.key, self.score, self.pointers)
 
 
+class RankView:
+
+    def __init__(self, set):
+        self._set = set
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return self._set.get_keys_by_rank(key.start, key.stop)
+        else:
+            return self._set.get_key_by_rank(key)
+
+
+class ScoreView:
+
+    def __init__(self, set):
+        self._set = set
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return self._set.get_keys_by_score(key.start, key.stop)
+        else:
+            raise NotImplementedError('Only slicing by index supported')
+
 
 class SortedSet(MutableMapping):
 
@@ -62,6 +85,8 @@ class SortedSet(MutableMapping):
         self.mapping = {}
         self.header = Item(empty, 0)
         self.tail = None
+        self.by_rank = RankView(self)
+        self.by_score = ScoreView(self)
         if source is not None:
             self.update(source)
 
@@ -192,3 +217,15 @@ class SortedSet(MutableMapping):
             if x.key == key:
                 return rank
         raise KeyError(key, score)
+
+    def get_key_by_rank(self, rank):
+        x = self.header
+        traversed = -1  # first key is always a header (Empty key)
+        for i in range(self.level-1, -1, -1):
+            while x[i].forward and x[i].span + traversed <= rank:
+                traversed += x[i].span
+                x = x[i].forward
+            if traversed == rank:
+                return x.key
+        raise IndexError(rank)
+

@@ -23,7 +23,6 @@ class TestSortedSets(unittest.TestCase):
             'one': 1,
             'two': 2,
             })
-        ss._dump()
         self.assertEqual(ss.index('two'), 1)
         self.assertEqual(ss.index('one'), 0)
 
@@ -96,6 +95,14 @@ class TestSortedSets(unittest.TestCase):
         self.assertEqual(ss['one'], 1)
         self.assertEqual(ss['three'], 3)
         self.assertEqual(list(ss), ['one', 'three'])
+
+    def test_key_by_rank(self):
+        ss = SortedSet({
+            'one': 1,
+            'two': 2,
+            })
+        self.assertEqual(ss.by_rank[1], 'two')
+        self.assertEqual(ss.by_rank[0], 'one')
 
     def test_delete_all_cases(self):
         for levels in product(range(1, 4), range(1, 4), range(1, 4)):
@@ -206,6 +213,8 @@ class TestFuzzy(unittest.TestCase):
                 key, score = items[idx]
                 self.assertEqual(set_n.index(key), idx)
                 self.assertEqual(set_r.index(key), idx)
+                self.assertEqual(set_n.by_rank[idx], key)
+                self.assertEqual(set_r.by_rank[idx], key)
 
         # Lets test 7 random insertion orders
         for i in (10, 20, 30, 40, 50, 60, 70):
@@ -262,6 +271,7 @@ class TestFuzzy(unittest.TestCase):
                 for idx in range(len(items)):
                     key, score = items[idx]
                     self.assertEqual(cur.index(key), idx)
+                    self.assertEqual(cur.by_rank[idx], key)
 
 
 if __name__ == '__main__':
