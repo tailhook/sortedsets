@@ -131,6 +131,15 @@ class TestSortedSets(unittest.TestCase):
             ss.by_index[::-1]
         with self.assertRaises(ValueError):
             ss.by_index[::-2]
+        ss = SortedSet(data)
+        del ss.by_index[:]
+        self.assertEqual(ss, SortedSet())
+        ss = SortedSet(data)
+        del ss.by_index[1:]
+        self.assertEqual(ss, SortedSet({'one': 1}))
+        ss = SortedSet(data)
+        del ss.by_index[:-1]
+        self.assertEqual(ss, SortedSet({'two': 2}))
 
     def test_slice_by_score(self):
         data = {
@@ -191,6 +200,8 @@ class TestSortedSets(unittest.TestCase):
                 with self.assertRaises(KeyError):
                     ss['two']
                 self.assertEqual(list(ss), ['one', 'three'])
+            ss.clear()
+            self.assertEqual(list(ss), [])
             # delete first
             ss = SortedSet()
             with patch.object(ss, '_random_level', side_effect=levels) as p:
@@ -203,6 +214,8 @@ class TestSortedSets(unittest.TestCase):
                 with self.assertRaises(KeyError):
                     ss['one']
                 self.assertEqual(list(ss), ['two', 'three'])
+            ss.clear()
+            self.assertEqual(list(ss), [])
             # delete last
             ss = SortedSet()
             with patch.object(ss, '_random_level', side_effect=levels) as p:
@@ -215,6 +228,8 @@ class TestSortedSets(unittest.TestCase):
                 with self.assertRaises(KeyError):
                     ss['three']
                 self.assertEqual(list(ss), ['one', 'two'])
+            ss.clear()
+            self.assertEqual(list(ss), [])
 
 
 class TestFuzzy(unittest.TestCase):
@@ -289,14 +304,41 @@ class TestFuzzy(unittest.TestCase):
             self.assertEqual(set_n.by_index[idx], key)
             self.assertEqual(set_r.by_index[idx], key)
 
-        # slicing for various combinations
+        # slicing by index should be same as slicing list
         ends = (None, 0, 2, 5, 10, 49, 50, 51, -1, -2, -5, -10, -49, 50, -51)
-        steps = (None, 1, 2, 3)
+        steps = (1, 2, 3)
         for start, stop, step in product(ends, ends, steps):
             self.assertEqual(list(set_n.by_index[start:stop:step].items()),
                              items[start:stop:step])
             self.assertEqual(list(set_r.by_index[start:stop:step].items()),
                              items[start:stop:step])
+        # let's try to delete and reinsert slice
+        for start, stop in product(ends, ends):
+            slc = set_r.by_index[start:stop]
+            slclist = items[start:stop]
+            self.assertEqual(list(slc.items()), slclist)
+            # delete a slice from set and list, then compare
+            del set_r.by_index[start:stop]
+            tmp = items[:]
+            del tmp[start:stop]
+            self.assertEqual(list(set_r.items()), tmp)
+            # let's recreate set and check
+            set_r.update(slc)
+            self.assertEqual(list(set_r.items()), items)
+
+            # try score slice on reverted set
+            if slclist:
+                # can do this only if set is not empty
+                scorestart = slclist[0][1]
+                scorestop = slclist[-1][1] + 1
+                slc2 = set_r.by_score[scorestart:scorestop]
+                self.assertEqual(list(slc2.items()), slclist)
+                del set_r.by_score[scorestart:scorestop]
+                self.assertEqual(list(set_r.items()), tmp)
+                # and revert this change back again
+                set_r.update(slc2)
+                self.assertEqual(list(set_r.items()), items)
+
 
         # Lets test 7 random insertion orders
         for i in (10, 20, 30, 40, 50, 60, 70):

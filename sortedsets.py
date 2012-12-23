@@ -94,6 +94,27 @@ class RankView:
             item = self._set._item_by_index(key)
             return item.key
 
+    def __delitem__(self, key):
+        if isinstance(key, slice):
+            set_len = len(self._set)
+            start, stop, step = key.indices(set_len)
+
+            if step != 1:
+                raise ValueError("Step is not suported for item deletion")
+            if stop <= start:
+                return  # nothing to delete
+
+            next, update = self._set._item_and_pointers_by_index(start)
+            stop -= start
+            for i in range(stop):
+                item = next
+                next = item[0].forward
+                del self._set.mapping[item.key]
+                self._set._delete_node(item, update)
+        else:
+            item, update = self._set._item_and_pointers_by_index(key)
+            self._set._delete_node(item, update)
+
 
 class ScoreView:
 
@@ -104,8 +125,8 @@ class ScoreView:
         if isinstance(key, slice):
             if key.step != None:
                 raise ValueError("Step must be None")
-            if(key.start is not None and key.step is not None and
-               key.start >= key.step) or not len(self._set):
+            if(key.start is not None and key.stop is not None and
+               key.start >= key.stop) or not len(self._set):
                 return self._set.__class__()
 
             startitem = self._set.header[0].forward
@@ -121,9 +142,41 @@ class ScoreView:
 
             result = self._set.__class__()
             for item in startitem._iter_to(None):
-                if item.score < key.stop:
-                    result[item.key] = item.score
+                if item.score >= key.stop:
+                    break
+                result[item.key] = item.score
             return result
+        else:
+            raise NotImplementedError('Only slicing by score supported')
+
+    def __delitem__(self, key):
+        if isinstance(key, slice):
+            if key.step != None:
+                raise ValueError("Step must be None")
+            if(key.start is not None and key.stop is not None and
+               key.start >= key.stop) or not len(self._set):
+                return  # nothing to delete
+
+            if key.start is None:
+                key.start = self._set.header[0].forward.score
+            next, update = self._set._item_and_pointers_by_score_left_incl(
+                key.start)
+            if next is None:
+                # means key.start is greater than max score in set
+                return  # nothing to delete
+
+            if key.stop:
+                while next and next.score <= key.stop:
+                    item = next
+                    next = item[0].forward
+                    del self._set.mapping[item.key]
+                    self._set._delete_node(item, update)
+            else:
+                while next:
+                    item = next
+                    next = item[0].forward
+                    del self._set.mapping[item.key]
+                    self._set._delete_node(item, update)
         else:
             raise NotImplementedError('Only slicing by score supported')
 
@@ -298,15 +351,43 @@ class SortedSet(MutableMapping):
                 return x
         raise IndexError(rank)
 
+    def _item_and_pointers_by_index(self, rank):
+        if rank < 0:
+            raise IndexError(rank)
+        x = self.header
+        update = [None] * self.level
+        traversed = -1  # first key is always a header (Empty key)
+        for i in range(self.level-1, -1, -1):
+            while x[i].forward and x[i].span + traversed < rank:
+                traversed += x[i].span
+                x = x[i].forward
+            update[i] = x
+        x = x[0].forward
+        return x, update
+
     def _item_by_score_left_incl(self, score):
         """Returns left most item scored up to `score` inclusive"""
-        # "right" name is analogy to bisect_left
+        # "left" name is analogy to bisect_left
         x = self.header
         for i in range(self.level-1, -1, -1):
             while x[i].forward and x[i].forward.score < score:
                 x = x[i].forward
         x = x[0].forward
         return x
+
+    def _item_and_pointers_by_score_left_incl(self, score):
+        """Returns left most item scored up to `score` inclusive
+
+        This one returns also ``update`` array to assist in item deletion
+        """
+        x = self.header
+        update = [None] * self.level
+        for i in range(self.level-1, -1, -1):
+            while x[i].forward and x[i].forward.score < score:
+                x = x[i].forward
+            update[i] = x
+        x = x[0].forward
+        return x, update
 
     def __repr__(self):
         return '<SortedSet {}>'.format(reprlib.Repr().repr_dict(self, 1))
