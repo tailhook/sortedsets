@@ -1,5 +1,7 @@
 import random
+import reprlib
 from collections import namedtuple, MutableMapping
+from itertools import islice
 
 
 class Empty(object):
@@ -53,6 +55,20 @@ class Item:
         return '<sortedsets.Item {!r} {!r} {!r}>'.format(
             self.key, self.score, self.pointers)
 
+    def _iter_to(self, stop_item):
+        item = self
+        while item != stop_item:
+            assert item is not None
+            yield item
+            item = item[0].forward
+
+    def _iter_backwards_to(self, stop_item):
+        item = self
+        while item != stop_item:
+            assert item is not None
+            yield item
+            item = item.backward
+
 
 class RankView:
 
@@ -61,9 +77,39 @@ class RankView:
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self._set.get_keys_by_rank(key.start, key.stop)
+            set_len = len(self._set)
+            start, stop, step = key.indices(set_len)
+
+            if step <= 0:
+                raise ValueError("Negative step is useless")
+            if stop <= start:
+                return self._set.__class__()  # empty set
+
+            startitem = self._set._item_by_index(start)
+            if stop < 0 or stop >= set_len:
+                stopitem = None
+            else:
+                stopitem = self._set._item_by_index(stop)
+
+            #print("SLICE", slice, start, stop, step, startitem, stopitem)
+
+            if step < 0:
+                if step != -1:
+                    return self._set._from_items(
+                        islice(startitem._iter_backwards_to(stopitem),
+                        0, None, -step))
+                else:
+                    return self._set._from_items(
+                        startitem._iter_backwards_to(stopitem))
+            else:
+                if step != 1:
+                    return self._set._from_items(
+                        islice(startitem._iter_to(stopitem), 0, None, step))
+                else:
+                    return self._set._from_items(startitem._iter_to(stopitem))
         else:
-            return self._set.get_key_by_rank(key)
+            item = self._set._item_by_index(key)
+            return item.key
 
 
 class ScoreView:
@@ -83,18 +129,25 @@ class SortedSet(MutableMapping):
     def __init__(self, source=None):
         self.level = 1
         self.mapping = {}
-        self.header = Item(empty, 0)
+        self.header = Item(empty, empty)
         self.tail = None
-        self.by_rank = RankView(self)
+        self.by_index = RankView(self)
         self.by_score = ScoreView(self)
         if source is not None:
             self.update(source)
 
+    @classmethod
+    def _from_items(cls, items):
+        self = cls()
+        for item in items:
+            self[item.key] = item.score
+        return self
+
     def __iter__(self):
-        item = self.header[0].forward  # header is always empty ?
-        while item:
-            yield item.key
-            item = item[0].forward
+        start = self.header[0].forward  # header is always empty
+        if not start:
+            return iter(())
+        return (item.key for item in start._iter_to(None))
 
     def __len__(self):
         return len(self.mapping)
@@ -218,7 +271,9 @@ class SortedSet(MutableMapping):
                 return rank
         raise KeyError(key, score)
 
-    def get_key_by_rank(self, rank):
+    def _item_by_index(self, rank):
+        if rank < 0:
+            raise IndexError(rank)
         x = self.header
         traversed = -1  # first key is always a header (Empty key)
         for i in range(self.level-1, -1, -1):
@@ -226,6 +281,9 @@ class SortedSet(MutableMapping):
                 traversed += x[i].span
                 x = x[i].forward
             if traversed == rank:
-                return x.key
+                return x
         raise IndexError(rank)
+
+    def __repr__(self):
+        return '<SortedSet {}>'.format(reprlib.Repr().repr_dict(self, 1))
 

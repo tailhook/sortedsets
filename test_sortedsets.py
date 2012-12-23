@@ -96,13 +96,41 @@ class TestSortedSets(unittest.TestCase):
         self.assertEqual(ss['three'], 3)
         self.assertEqual(list(ss), ['one', 'three'])
 
-    def test_key_by_rank(self):
+    def test_key_by_index(self):
         ss = SortedSet({
             'one': 1,
             'two': 2,
             })
-        self.assertEqual(ss.by_rank[1], 'two')
-        self.assertEqual(ss.by_rank[0], 'one')
+        self.assertEqual(ss.by_index[1], 'two')
+        self.assertEqual(ss.by_index[0], 'one')
+
+    def test_repr(self):
+        ss = SortedSet({
+            'one': 1,
+            'two': 2,
+            })
+        self.assertEqual(repr(ss), "<SortedSet {'one': 1, 'two': 2}>")
+
+    def test_slice(self):
+        data = {
+            'one': 1,
+            'two': 2,
+            }
+        ss = SortedSet(data)
+        self.assertEqual(ss.by_index[:], SortedSet(data))
+        self.assertEqual(ss.by_index[1:], SortedSet({'two': 2}))
+        self.assertEqual(ss.by_index[2:], SortedSet())
+        self.assertEqual(ss.by_index[3:], SortedSet())
+        self.assertEqual(ss.by_index[:-1], SortedSet({'one': 1}))
+        self.assertEqual(ss.by_index[:-2], SortedSet())
+        self.assertEqual(ss.by_index[:-3], SortedSet())
+        self.assertEqual(ss.by_index[:-4], SortedSet())
+        with self.assertRaises(ValueError):
+            ss.by_index[::0]
+        with self.assertRaises(ValueError):
+            ss.by_index[::-1]
+        with self.assertRaises(ValueError):
+            ss.by_index[::-2]
 
     def test_delete_all_cases(self):
         for levels in product(range(1, 4), range(1, 4), range(1, 4)):
@@ -209,12 +237,21 @@ class TestFuzzy(unittest.TestCase):
             self.assertEqual(list(cur.keys()), keys)
             self.assertEqual(list(cur.values()), values)
             self.assertEqual(list(cur.items()), items)
-            for idx in range(len(items)):
-                key, score = items[idx]
-                self.assertEqual(set_n.index(key), idx)
-                self.assertEqual(set_r.index(key), idx)
-                self.assertEqual(set_n.by_rank[idx], key)
-                self.assertEqual(set_r.by_rank[idx], key)
+        for idx in range(len(items)):
+            key, score = items[idx]
+            self.assertEqual(set_n.index(key), idx)
+            self.assertEqual(set_r.index(key), idx)
+            self.assertEqual(set_n.by_index[idx], key)
+            self.assertEqual(set_r.by_index[idx], key)
+
+        # slicing for various combinations
+        ends = (None, 0, 2, 5, 10, 49, 50, 51, -1, -2, -5, -10, -49, 50, -51)
+        steps = (None, 1, 2, 3)
+        for start, stop, step in product(ends, ends, steps):
+            self.assertEqual(list(set_n.by_index[start:stop:step].items()),
+                             items[start:stop:step])
+            self.assertEqual(list(set_r.by_index[start:stop:step].items()),
+                             items[start:stop:step])
 
         # Lets test 7 random insertion orders
         for i in (10, 20, 30, 40, 50, 60, 70):
@@ -271,7 +308,7 @@ class TestFuzzy(unittest.TestCase):
                 for idx in range(len(items)):
                     key, score = items[idx]
                     self.assertEqual(cur.index(key), idx)
-                    self.assertEqual(cur.by_rank[idx], key)
+                    self.assertEqual(cur.by_index[idx], key)
 
 
 if __name__ == '__main__':
