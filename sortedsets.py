@@ -86,18 +86,10 @@ class RankView:
                 return self._set.__class__()  # empty set
 
             startitem = self._set._item_by_index(start)
-            if stop < 0 or stop >= set_len:
-                stopitem = None
-            else:
-                stopitem = self._set._item_by_index(stop)
+            stop -= start
 
-            #print("SLICE", slice, start, stop, step, startitem, stopitem)
-
-            if step != 1:
-                return self._set._from_items(
-                    islice(startitem._iter_to(stopitem), 0, None, step))
-            else:
-                return self._set._from_items(startitem._iter_to(stopitem))
+            return self._set._from_items(
+                islice(startitem._iter_to(None), 0, stop, step))
         else:
             item = self._set._item_by_index(key)
             return item.key
@@ -115,21 +107,23 @@ class ScoreView:
             if(key.start is not None and key.step is not None and
                key.start >= key.step) or not len(self._set):
                 return self._set.__class__()
+
+            startitem = self._set.header[0].forward
             if key.start is not None:
-                startitem = self._set._item_by_score_left_incl(key.start)
-                if startitem is None:
-                    startitem = self._set.header[0].forward
-                    if startitem.score <= key.start:
-                        # range if after the biggest value
-                        assert self._set.tail.score < key.start
+                if startitem.score < key.start:
+                    startitem = self._set._item_by_score_left_incl(key.start)
+                    if startitem is None:
+                        # means key.start is greater than max score in set
                         return self._set.__class__()
-            else:
-                startitem = self._set.header[0].forward
-            if key.stop is not None:
-                stopitem = self._set._item_by_score_left_incl(key.stop)
-            else:
-                stopitem = None
-            return self._set._from_items(startitem._iter_to(stopitem))
+
+            if key.stop is None:
+                return self._set._from_items(startitem._iter_to(None))
+
+            result = self._set.__class__()
+            for item in startitem._iter_to(None):
+                if item.score < key.stop:
+                    result[item.key] = item.score
+            return result
         else:
             raise NotImplementedError('Only slicing by score supported')
 
