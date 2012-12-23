@@ -111,7 +111,7 @@ class TestSortedSets(unittest.TestCase):
             })
         self.assertEqual(repr(ss), "<SortedSet {'one': 1, 'two': 2}>")
 
-    def test_slice(self):
+    def test_slice_by_index(self):
         data = {
             'one': 1,
             'two': 2,
@@ -131,6 +131,51 @@ class TestSortedSets(unittest.TestCase):
             ss.by_index[::-1]
         with self.assertRaises(ValueError):
             ss.by_index[::-2]
+
+    def test_slice_by_score(self):
+        data = {
+            'one': 1,
+            'two1': 2,
+            'two2': 2,
+            'two3': 2,
+            'three': 3,
+            }
+        ss = SortedSet(data)
+        self.assertEqual(ss.by_score[:], SortedSet(data))
+        self.assertEqual(ss.by_score[1:], SortedSet(data))
+        self.assertEqual(ss.by_score[1:4], SortedSet(data))
+        self.assertEqual(ss.by_score[:4], SortedSet(data))
+        tmp = data.copy()
+        del tmp['one']
+        self.assertEqual(ss.by_score[1.5:], SortedSet(tmp))
+        self.assertEqual(ss.by_score[2:], SortedSet(tmp))
+        self.assertEqual(ss.by_score[2:4], SortedSet(tmp))
+        self.assertEqual(ss.by_score[1.5:4], SortedSet(tmp))
+        self.assertEqual(ss.by_score[1.5:3.1], SortedSet(tmp))
+        tmp = data.copy()
+        del tmp['three']
+        self.assertEqual(ss.by_score[0.5:3], SortedSet(tmp))
+        self.assertEqual(ss.by_score[0.5:2.5], SortedSet(tmp))
+        self.assertEqual(ss.by_score[:2.5], SortedSet(tmp))
+        self.assertEqual(ss.by_score[:3], SortedSet(tmp))
+        self.assertEqual(ss.by_score[:2.01], SortedSet(tmp))
+        del tmp['one']
+        self.assertEqual(ss.by_score[1.01:2.01], SortedSet(tmp))
+        self.assertEqual(ss.by_score[1.99:2.01], SortedSet(tmp))
+        self.assertEqual(ss.by_score[2:2.01], SortedSet(tmp))
+        self.assertEqual(ss.by_score[2:2.99], SortedSet(tmp))
+        self.assertEqual(ss.by_score[2.01:2.99], SortedSet())
+        self.assertEqual(ss.by_score[:2], SortedSet({'one': 1}))
+        self.assertEqual(ss.by_score[:1.01], SortedSet({'one': 1}))
+        self.assertEqual(ss.by_score[:1.99], SortedSet({'one': 1}))
+        self.assertEqual(ss.by_score[3:], SortedSet({'three': 3}))
+        self.assertEqual(ss.by_score[2.01:], SortedSet({'three': 3}))
+        self.assertEqual(ss.by_score[2.99:], SortedSet({'three': 3}))
+        self.assertEqual(ss.by_score[3.01:], SortedSet())
+
+        self.assertEqual(ss.by_score[
+            fractions.Fraction(4/3):fractions.Fraction(7/3)
+            ], SortedSet({'two1': 2, 'two2': 2, 'two3': 2}))
 
     def test_delete_all_cases(self):
         for levels in product(range(1, 4), range(1, 4), range(1, 4)):

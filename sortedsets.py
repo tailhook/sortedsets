@@ -93,20 +93,11 @@ class RankView:
 
             #print("SLICE", slice, start, stop, step, startitem, stopitem)
 
-            if step < 0:
-                if step != -1:
-                    return self._set._from_items(
-                        islice(startitem._iter_backwards_to(stopitem),
-                        0, None, -step))
-                else:
-                    return self._set._from_items(
-                        startitem._iter_backwards_to(stopitem))
+            if step != 1:
+                return self._set._from_items(
+                    islice(startitem._iter_to(stopitem), 0, None, step))
             else:
-                if step != 1:
-                    return self._set._from_items(
-                        islice(startitem._iter_to(stopitem), 0, None, step))
-                else:
-                    return self._set._from_items(startitem._iter_to(stopitem))
+                return self._set._from_items(startitem._iter_to(stopitem))
         else:
             item = self._set._item_by_index(key)
             return item.key
@@ -119,9 +110,28 @@ class ScoreView:
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self._set.get_keys_by_score(key.start, key.stop)
+            if key.step != None:
+                raise ValueError("Step must be None")
+            if(key.start is not None and key.step is not None and
+               key.start >= key.step) or not len(self._set):
+                return self._set.__class__()
+            if key.start is not None:
+                startitem = self._set._item_by_score_left_incl(key.start)
+                if startitem is None:
+                    startitem = self._set.header[0].forward
+                    if startitem.score <= key.start:
+                        # range if after the biggest value
+                        assert self._set.tail.score < key.start
+                        return self._set.__class__()
+            else:
+                startitem = self._set.header[0].forward
+            if key.stop is not None:
+                stopitem = self._set._item_by_score_left_incl(key.stop)
+            else:
+                stopitem = None
+            return self._set._from_items(startitem._iter_to(stopitem))
         else:
-            raise NotImplementedError('Only slicing by index supported')
+            raise NotImplementedError('Only slicing by score supported')
 
 
 class SortedSet(MutableMapping):
@@ -138,6 +148,10 @@ class SortedSet(MutableMapping):
 
     @classmethod
     def _from_items(cls, items):
+        """Generates a new set from iterator over Item objects
+
+        Usually used to make a new set from ``item._iter_to(other_item)``
+        """
         self = cls()
         for item in items:
             self[item.key] = item.score
@@ -148,6 +162,12 @@ class SortedSet(MutableMapping):
         if not start:
             return iter(())
         return (item.key for item in start._iter_to(None))
+
+    def __reversed__(self):
+        start = self.tail
+        if not start:
+            return iter(())
+        return (item.key for item in start._iter_backwards_to(None))
 
     def __len__(self):
         return len(self.mapping)
@@ -284,6 +304,17 @@ class SortedSet(MutableMapping):
                 return x
         raise IndexError(rank)
 
+    def _item_by_score_left_incl(self, score):
+        """Returns left most item scored up to `score` inclusive"""
+        # "right" name is analogy to bisect_left
+        x = self.header
+        for i in range(self.level-1, -1, -1):
+            while x[i].forward and x[i].forward.score < score:
+                x = x[i].forward
+        x = x[0].forward
+        return x
+
     def __repr__(self):
         return '<SortedSet {}>'.format(reprlib.Repr().repr_dict(self, 1))
+
 
