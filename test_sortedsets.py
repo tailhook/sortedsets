@@ -2,7 +2,8 @@ import unittest
 import random
 import copy
 from operator import itemgetter
-from itertools import combinations
+from itertools import combinations, product
+from unittest.mock import patch
 
 from sortedsets import SortedSet
 
@@ -44,10 +45,59 @@ class TestSortedSets(unittest.TestCase):
         ss['two'] = 2
         self.assertEqual(list(ss.values()), [1, 2])
 
+    def test_delete(self):
+        ss = SortedSet()
+        ss['one'] = 1
+        ss['two'] = 2
+        ss['three'] = 3
+        del ss['two']
+        self.assertEqual(ss['one'], 1)
+        self.assertEqual(ss['three'], 3)
+        self.assertEqual(list(ss), ['one', 'three'])
+
+    def test_delete_all_cases(self):
+        for levels in product(range(1, 4), range(1, 4), range(1, 4)):
+            # delete middle
+            ss = SortedSet()
+            with patch.object(ss, '_random_level', side_effect=levels) as p:
+                ss['one'] = 1
+                ss['two'] = 2
+                ss['three'] = 3
+                del ss['two']
+                self.assertEqual(ss['one'], 1)
+                self.assertEqual(ss['three'], 3)
+                with self.assertRaises(KeyError):
+                    ss['two']
+                self.assertEqual(list(ss), ['one', 'three'])
+            # delete first
+            ss = SortedSet()
+            with patch.object(ss, '_random_level', side_effect=levels) as p:
+                ss['one'] = 1
+                ss['two'] = 2
+                ss['three'] = 3
+                del ss['one']
+                self.assertEqual(ss['two'], 2)
+                self.assertEqual(ss['three'], 3)
+                with self.assertRaises(KeyError):
+                    ss['one']
+                self.assertEqual(list(ss), ['two', 'three'])
+            # delete last
+            ss = SortedSet()
+            with patch.object(ss, '_random_level', side_effect=levels) as p:
+                ss['one'] = 1
+                ss['two'] = 2
+                ss['three'] = 3
+                del ss['three']
+                self.assertEqual(ss['one'], 1)
+                self.assertEqual(ss['two'], 2)
+                with self.assertRaises(KeyError):
+                    ss['three']
+                self.assertEqual(list(ss), ['one', 'two'])
+
 
 class TestFuzzy(unittest.TestCase):
 
-    def test_integers(self):
+    def test_insert_integers(self):
         items = [  # fifty random values
              ('Xe2W0QxllGdCW251l7U9Dg', 150),
              ('3HT/SVSdCwM+4ZjtSqHCew', 476),

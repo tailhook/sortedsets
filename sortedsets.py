@@ -19,9 +19,9 @@ class Pointer:
 
     def __repr__(self):
         if self.forward:
-            return '<P {}>'.format(self.span)
+            return '<P {} {!r}>'.format(self.span, self.forward.key)
         else:
-            assert self.span == 0
+            # assert self.span == 0
             return '<P>'
 
 
@@ -138,7 +138,31 @@ class SortedSet(MutableMapping):
 
     def __delitem__(self, key):
         item = self.mapping.pop(key)
-        raise NotImplementedError("Delitem")  # TODO
+        update = [None] * self.level
+
+        x = self.header
+        for i in range(self.level-1, -1, -1):
+            while x[i].forward and x[i].forward < item:
+                x = x[i].forward
+            update[i] = x
+
+        assert item == x[0].forward
+        self._delete_node(item, update)
+
+    def _delete_node(self, x, update):
+        for i in range(self.level):
+            if update[i][i].forward == x:
+                update[i][i].span += x[i].span - 1
+                update[i][i].forward = x[i].forward
+            else:
+                update[i][i].span -= 1
+            assert update[i][i].span > 0 or not update[i][i].forward, update
+        if x[0].forward:
+            x[0].forward.backward = x.backward
+        else:
+            self.tail = x.backward
+        while self.level > 1 and not self.header[self.level-1].forward:
+            self.level -= 1
 
     def _dump(self):
         print("SORTEDSET {:#x} {}".format(id(self), len(self)))
@@ -149,4 +173,5 @@ class SortedSet(MutableMapping):
             if not head:
                 break
         else:
+            print('   ', 'ERRORNEOUS NODE', head)
             raise AssertionError("Too many nodes, or duplicates")
