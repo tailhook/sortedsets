@@ -1,6 +1,7 @@
 import unittest
 import random
 import copy
+import fractions
 from operator import itemgetter
 from itertools import combinations, product
 from unittest.mock import patch
@@ -44,6 +45,36 @@ class TestSortedSets(unittest.TestCase):
         ss['one'] = 1
         ss['two'] = 2
         self.assertEqual(list(ss.values()), [1, 2])
+
+    def test_negative(self):
+        ss = SortedSet()
+        ss['one'] = 1
+        ss['two'] = -2
+        self.assertEqual(ss['one'], 1)
+        self.assertEqual(ss['two'], -2)
+        self.assertEqual(list(ss), ['two', 'one'])
+
+    def test_floats(self):
+        ss = SortedSet()
+        # we use values that have exact representation as floating point number
+        ss['one'] = 1.25
+        ss['two'] = 1.5
+        ss['three'] = -3.0
+        self.assertEqual(ss['one'], 1.25)
+        self.assertEqual(ss['two'], 1.5)
+        self.assertEqual(ss['three'], -3.0)
+        self.assertEqual(list(ss), ['three', 'one', 'two'])
+
+    def test_fractions(self):
+        ss = SortedSet()
+        # we use values that have exact representation as floating point number
+        ss['one'] = fractions.Fraction(1, 2)
+        ss['two'] = fractions.Fraction(2, 3)
+        ss['three'] = fractions.Fraction(-3, 2)
+        self.assertEqual(ss['one'], fractions.Fraction(1, 2))
+        self.assertEqual(ss['two'], fractions.Fraction(2, 3))
+        self.assertEqual(ss['three'], fractions.Fraction(-3, 2))
+        self.assertEqual(list(ss), ['three', 'one', 'two'])
 
     def test_delete(self):
         ss = SortedSet()
