@@ -18,6 +18,15 @@ class TestSortedSets(unittest.TestCase):
         self.assertEqual(ss['one'], 1)
         self.assertEqual(ss['two'], 2)
 
+    def test_index(self):
+        ss = SortedSet({
+            'one': 1,
+            'two': 2,
+            })
+        ss._dump()
+        self.assertEqual(ss.index('two'), 1)
+        self.assertEqual(ss.index('one'), 0)
+
     def test_keys(self):
         ss = SortedSet()
         ss['one'] = 1
@@ -53,6 +62,8 @@ class TestSortedSets(unittest.TestCase):
         self.assertEqual(ss['one'], 1)
         self.assertEqual(ss['two'], -2)
         self.assertEqual(list(ss), ['two', 'one'])
+        self.assertEqual(ss.index('two'), 0)
+        self.assertEqual(ss.index('one'), 1)
 
     def test_floats(self):
         ss = SortedSet()
@@ -191,6 +202,10 @@ class TestFuzzy(unittest.TestCase):
             self.assertEqual(list(cur.keys()), keys)
             self.assertEqual(list(cur.values()), values)
             self.assertEqual(list(cur.items()), items)
+            for idx in range(len(items)):
+                key, score = items[idx]
+                self.assertEqual(set_n.index(key), idx)
+                self.assertEqual(set_r.index(key), idx)
 
         # Lets test 7 random insertion orders
         for i in (10, 20, 30, 40, 50, 60, 70):
@@ -244,6 +259,9 @@ class TestFuzzy(unittest.TestCase):
                 self.assertEqual(cur, set_n)
                 self.assertEqual(cur, set_r)
                 self.assertEqual(list(cur.items()), items)
+                for idx in range(len(items)):
+                    key, score = items[idx]
+                    self.assertEqual(cur.index(key), idx)
 
 
 if __name__ == '__main__':

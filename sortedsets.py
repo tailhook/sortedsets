@@ -44,6 +44,11 @@ class Item:
         return (self.score < other.score or
                 self.score == other.score and hash(self.key) < hash(other.key))
 
+    def __le__(self, other):
+        return (self.score < other.score or
+                self.score == other.score and
+                (hash(self.key) < hash(other.key) or self.key == other.key))
+
     def __repr__(self):
         return '<sortedsets.Item {!r} {!r} {!r}>'.format(
             self.key, self.score, self.pointers)
@@ -175,3 +180,15 @@ class SortedSet(MutableMapping):
         else:
             print('   ', 'ERRORNEOUS NODE', head)
             raise AssertionError("Too many nodes, or duplicates")
+
+    def index(self, key):
+        x = self.header
+        rank = -1  # first key is always a header (Empty key)
+        item = self.mapping[key]
+        for i in range(self.level-1, -1, -1):
+            while x[i].forward and x[i].forward <= item:
+                rank += x[i].span
+                x = x[i].forward
+            if x.key == key:
+                return rank
+        raise KeyError(key, score)
