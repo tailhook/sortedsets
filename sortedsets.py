@@ -4,16 +4,11 @@ from collections import namedtuple, MutableMapping
 from itertools import islice
 
 
-class Empty(object):
-
-    def __repr__(self):
-        return '<Empty>'
-
-
-empty = Empty()
+empty = object()
 
 
 class Pointer:
+    __slots__ = ('forward', 'span')
 
     def __init__(self, forward=None, span=0):
         self.forward = forward
@@ -28,6 +23,7 @@ class Pointer:
 
 
 class Item:
+    __slots__ = ('key', 'score', 'pointers', 'backward')
 
     def __init__(self, key, score):
         self.key = key
@@ -71,6 +67,7 @@ class Item:
 
 
 class RankView:
+    __slots__ = ('_set',)
 
     def __init__(self, set):
         self._set = set
@@ -117,6 +114,7 @@ class RankView:
 
 
 class ScoreView:
+    __slots__ = ('_set',)
 
     def __init__(self, set):
         self._set = set
@@ -181,7 +179,22 @@ class ScoreView:
             raise NotImplementedError('Only slicing by score supported')
 
 
+def _random_level():
+    """Returns a random level for the new skiplist node
+
+    The return value of this function is between 1 and ZSKIPLIST_MAXLEVEL
+    (both inclusive), with a powerlaw-alike distribution where higher
+    levels are less likely to be returned.
+    """
+    level = 1
+    while random.random() < 0.25:
+        level += 1
+    return level
+
+
 class SortedSet(MutableMapping):
+    __slots__ = ('_level', '_mapping', '_header', '_tail',
+                 'by_score', 'by_index')
 
     def __init__(self, source=None):
         self._level = 1
@@ -219,17 +232,6 @@ class SortedSet(MutableMapping):
     def __len__(self):
         return len(self._mapping)
 
-    def _random_level(self):
-        """Returns a random level for the new skiplist node
-
-        The return value of this function is between 1 and ZSKIPLIST_MAXLEVEL
-        (both inclusive), with a powerlaw-alike distribution where higher
-        levels are less likely to be returned.
-        """
-        level = 1
-        while random.random() < 0.25:
-            level += 1
-        return level
 
     def __setitem__(self, key, score):
         if key in self:
@@ -249,9 +251,7 @@ class SortedSet(MutableMapping):
                 x = x[i].forward
             update[i] = x
 
-        #print('RANK', rank, 'UPDATE', update)
-
-        level = self._random_level()
+        level = _random_level()
         if level > self._level:
             for i in range(self._level, level):
                 assert len(rank) == i
@@ -260,9 +260,6 @@ class SortedSet(MutableMapping):
                 update.append(self._header)
                 update[i][i].span = len(self)
             self._level = level
-        item._level = level
-
-        #print('NEWLEVEL', level, 'RANK', rank, 'UPDATE', update)
 
         x = item
         for i in range(level):
@@ -313,18 +310,6 @@ class SortedSet(MutableMapping):
             self._tail = x.backward
         while self._level > 1 and not self._header[self._level-1].forward:
             self._level -= 1
-
-    def _dump(self):
-        print("SORTEDSET {:#x} {}".format(id(self), len(self)))
-        head = self._header
-        for i in range(len(self) + 1):
-            print('   ', head)
-            head = head[0].forward
-            if not head:
-                break
-        else:
-            print('   ', 'ERRORNEOUS NODE', head)
-            raise AssertionError("Too many nodes, or duplicates")
 
     def index(self, key):
         x = self._header

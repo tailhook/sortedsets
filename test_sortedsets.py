@@ -190,7 +190,7 @@ class TestSortedSets(unittest.TestCase):
         for levels in product(range(1, 4), range(1, 4), range(1, 4)):
             # delete middle
             ss = SortedSet()
-            with patch.object(ss, '_random_level', side_effect=levels) as p:
+            with patch('sortedsets._random_level', side_effect=levels) as p:
                 ss['one'] = 1
                 ss['two'] = 2
                 ss['three'] = 3
@@ -204,7 +204,7 @@ class TestSortedSets(unittest.TestCase):
             self.assertEqual(list(ss), [])
             # delete first
             ss = SortedSet()
-            with patch.object(ss, '_random_level', side_effect=levels) as p:
+            with patch('sortedsets._random_level', side_effect=levels) as p:
                 ss['one'] = 1
                 ss['two'] = 2
                 ss['three'] = 3
@@ -218,7 +218,7 @@ class TestSortedSets(unittest.TestCase):
             self.assertEqual(list(ss), [])
             # delete last
             ss = SortedSet()
-            with patch.object(ss, '_random_level', side_effect=levels) as p:
+            with patch('sortedsets._random_level', side_effect=levels) as p:
                 ss['one'] = 1
                 ss['two'] = 2
                 ss['three'] = 3
