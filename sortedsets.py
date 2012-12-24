@@ -109,7 +109,7 @@ class RankView:
             for i in range(stop):
                 item = next
                 next = item[0].forward
-                del self._set.mapping[item.key]
+                del self._set._mapping[item.key]
                 self._set._delete_node(item, update)
         else:
             item, update = self._set._item_and_pointers_by_index(key)
@@ -129,7 +129,7 @@ class ScoreView:
                key.start >= key.stop) or not len(self._set):
                 return self._set.__class__()
 
-            startitem = self._set.header[0].forward
+            startitem = self._set._header[0].forward
             if key.start is not None:
                 if startitem.score < key.start:
                     startitem = self._set._item_by_score_left_incl(key.start)
@@ -158,7 +158,7 @@ class ScoreView:
                 return  # nothing to delete
 
             if key.start is None:
-                key.start = self._set.header[0].forward.score
+                key.start = self._set._header[0].forward.score
             next, update = self._set._item_and_pointers_by_score_left_incl(
                 key.start)
             if next is None:
@@ -169,13 +169,13 @@ class ScoreView:
                 while next and next.score <= key.stop:
                     item = next
                     next = item[0].forward
-                    del self._set.mapping[item.key]
+                    del self._set._mapping[item.key]
                     self._set._delete_node(item, update)
             else:
                 while next:
                     item = next
                     next = item[0].forward
-                    del self._set.mapping[item.key]
+                    del self._set._mapping[item.key]
                     self._set._delete_node(item, update)
         else:
             raise NotImplementedError('Only slicing by score supported')
@@ -184,10 +184,10 @@ class ScoreView:
 class SortedSet(MutableMapping):
 
     def __init__(self, source=None):
-        self.level = 1
-        self.mapping = {}
-        self.header = Item(empty, empty)
-        self.tail = None
+        self._level = 1
+        self._mapping = {}
+        self._header = Item(empty, empty)
+        self._tail = None
         self.by_index = RankView(self)
         self.by_score = ScoreView(self)
         if source is not None:
@@ -205,19 +205,19 @@ class SortedSet(MutableMapping):
         return self
 
     def __iter__(self):
-        start = self.header[0].forward  # header is always empty
+        start = self._header[0].forward  # header is always empty
         if not start:
             return iter(())
         return (item.key for item in start._iter_to(None))
 
     def __reversed__(self):
-        start = self.tail
+        start = self._tail
         if not start:
             return iter(())
         return (item.key for item in start._iter_backwards_to(None))
 
     def __len__(self):
-        return len(self.mapping)
+        return len(self._mapping)
 
     def _random_level(self):
         """Returns a random level for the new skiplist node
@@ -236,14 +236,14 @@ class SortedSet(MutableMapping):
             del self[key]
             # TODO probably optimize changing a value
         item = Item(key, score)
-        self.mapping[key] = item
+        self._mapping[key] = item
 
-        rank = [None] * self.level
-        update = [None] * self.level
-        x = self.header
-        for i in range(self.level-1, -1, -1):
+        rank = [None] * self._level
+        update = [None] * self._level
+        x = self._header
+        for i in range(self._level-1, -1, -1):
             # store rank that is crossed to reach the insert position
-            rank[i] = 0 if i == self.level-1 else rank[i+1]
+            rank[i] = 0 if i == self._level-1 else rank[i+1]
             while x[i].forward and x[i].forward < item:
                 rank[i] += x[i].span
                 x = x[i].forward
@@ -252,15 +252,15 @@ class SortedSet(MutableMapping):
         #print('RANK', rank, 'UPDATE', update)
 
         level = self._random_level()
-        if level > self.level:
-            for i in range(self.level, level):
+        if level > self._level:
+            for i in range(self._level, level):
                 assert len(rank) == i
                 rank.append(0)
                 assert len(update) == i
-                update.append(self.header)
+                update.append(self._header)
                 update[i][i].span = len(self)
-            self.level = level
-        item.level = level
+            self._level = level
+        item._level = level
 
         #print('NEWLEVEL', level, 'RANK', rank, 'UPDATE', update)
 
@@ -274,24 +274,24 @@ class SortedSet(MutableMapping):
             update[i][i].span = (rank[0] - rank[i]) + 1
 
         # increment span for untouched levels
-        for i in range(level, self.level):
+        for i in range(level, self._level):
             update[i][i].span += 1
 
-        x.backward = None if update[0] == self.header else update[0]
+        x.backward = None if update[0] == self._header else update[0]
         if x[0].forward:
             x[0].forward.backward = x
         else:
-            self.tail = x
+            self._tail = x
 
     def __getitem__(self, key):
-        return self.mapping[key].score
+        return self._mapping[key].score
 
     def __delitem__(self, key):
-        item = self.mapping.pop(key)
-        update = [None] * self.level
+        item = self._mapping.pop(key)
+        update = [None] * self._level
 
-        x = self.header
-        for i in range(self.level-1, -1, -1):
+        x = self._header
+        for i in range(self._level-1, -1, -1):
             while x[i].forward and x[i].forward < item:
                 x = x[i].forward
             update[i] = x
@@ -300,7 +300,7 @@ class SortedSet(MutableMapping):
         self._delete_node(item, update)
 
     def _delete_node(self, x, update):
-        for i in range(self.level):
+        for i in range(self._level):
             if update[i][i].forward == x:
                 update[i][i].span += x[i].span - 1
                 update[i][i].forward = x[i].forward
@@ -310,13 +310,13 @@ class SortedSet(MutableMapping):
         if x[0].forward:
             x[0].forward.backward = x.backward
         else:
-            self.tail = x.backward
-        while self.level > 1 and not self.header[self.level-1].forward:
-            self.level -= 1
+            self._tail = x.backward
+        while self._level > 1 and not self._header[self._level-1].forward:
+            self._level -= 1
 
     def _dump(self):
         print("SORTEDSET {:#x} {}".format(id(self), len(self)))
-        head = self.header
+        head = self._header
         for i in range(len(self) + 1):
             print('   ', head)
             head = head[0].forward
@@ -327,10 +327,10 @@ class SortedSet(MutableMapping):
             raise AssertionError("Too many nodes, or duplicates")
 
     def index(self, key):
-        x = self.header
+        x = self._header
         rank = -1  # first key is always a header (Empty key)
-        item = self.mapping[key]
-        for i in range(self.level-1, -1, -1):
+        item = self._mapping[key]
+        for i in range(self._level-1, -1, -1):
             while x[i].forward and x[i].forward <= item:
                 rank += x[i].span
                 x = x[i].forward
@@ -341,9 +341,9 @@ class SortedSet(MutableMapping):
     def _item_by_index(self, rank):
         if rank < 0:
             raise IndexError(rank)
-        x = self.header
+        x = self._header
         traversed = -1  # first key is always a header (Empty key)
-        for i in range(self.level-1, -1, -1):
+        for i in range(self._level-1, -1, -1):
             while x[i].forward and x[i].span + traversed <= rank:
                 traversed += x[i].span
                 x = x[i].forward
@@ -354,10 +354,10 @@ class SortedSet(MutableMapping):
     def _item_and_pointers_by_index(self, rank):
         if rank < 0:
             raise IndexError(rank)
-        x = self.header
-        update = [None] * self.level
+        x = self._header
+        update = [None] * self._level
         traversed = -1  # first key is always a header (Empty key)
-        for i in range(self.level-1, -1, -1):
+        for i in range(self._level-1, -1, -1):
             while x[i].forward and x[i].span + traversed < rank:
                 traversed += x[i].span
                 x = x[i].forward
@@ -368,8 +368,8 @@ class SortedSet(MutableMapping):
     def _item_by_score_left_incl(self, score):
         """Returns left most item scored up to `score` inclusive"""
         # "left" name is analogy to bisect_left
-        x = self.header
-        for i in range(self.level-1, -1, -1):
+        x = self._header
+        for i in range(self._level-1, -1, -1):
             while x[i].forward and x[i].forward.score < score:
                 x = x[i].forward
         x = x[0].forward
@@ -380,9 +380,9 @@ class SortedSet(MutableMapping):
 
         This one returns also ``update`` array to assist in item deletion
         """
-        x = self.header
-        update = [None] * self.level
-        for i in range(self.level-1, -1, -1):
+        x = self._header
+        update = [None] * self._level
+        for i in range(self._level-1, -1, -1):
             while x[i].forward and x[i].forward.score < score:
                 x = x[i].forward
             update[i] = x
