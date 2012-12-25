@@ -53,7 +53,7 @@ Let's find out their rating positions::
     >>> ss.index('player20'), ss.index('player21')
     (29, 17)
 
-Let's find out players that have score similar to one::
+Let's find out players that have score similar to one's::
 
     >>> ss['player49']
     490
@@ -67,7 +67,7 @@ Let's find out players that have score similar to one::
     player49 490
     player51 510
 
-Let's find out players on the rating page 25:
+Let's find out players on the rating page 25::
 
     >>> page, pagesize = 25, 10
     >>> ss.by_index[page*pagesize:page*pagesize + pagesize]
